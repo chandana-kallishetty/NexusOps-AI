@@ -1,48 +1,80 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Map as MapIcon, ShieldAlert } from "lucide-react"
-import { ResponsiveContainer, ScatterChart, Scatter, XAxis, YAxis, ZAxis, Tooltip, Cell } from "recharts"
+import { Map as MapIcon, ShieldAlert, Activity, GitBranch, Zap, Navigation } from "lucide-react"
+import { MapContainer, TileLayer, CircleMarker, Polyline, Tooltip, Popup } from 'react-leaflet'
+
+// Hub Data
+const hubs = [
+  { 
+    id: 1, 
+    name: "North America Distribution Hub", 
+    coords: [39.8283, -98.5795], 
+    throughput: 4200, 
+    risk: 15, 
+    inventory: '94%',
+    status: 'Normal',
+    color: '#10b981' // emerald-500
+  },
+  { 
+    id: 2, 
+    name: "Europe Fulfillment Center", 
+    coords: [51.1657, 10.4515], 
+    throughput: 3800, 
+    risk: 65, 
+    inventory: '115% (Overstock)',
+    status: 'Congested',
+    color: '#f97316' // orange-500
+  },
+  { 
+    id: 3, 
+    name: "Global Logistics Hub (Dubai)", 
+    coords: [25.2048, 55.2708], 
+    throughput: 2100, 
+    risk: 42, 
+    inventory: '78%',
+    status: 'Normal',
+    color: '#10b981'
+  },
+  { 
+    id: 4, 
+    name: "Asia Pacific Operations Center", 
+    coords: [1.3521, 103.8198], 
+    throughput: 2400, 
+    risk: 92, 
+    inventory: '12% (Stockout Warning)',
+    status: 'Critical',
+    color: '#ef4444' // red-500
+  }
+];
+
+// Route Data
+const routes = [
+  {
+    from: hubs[0].coords,
+    to: hubs[1].coords,
+    status: 'Normal',
+    color: '#10b981'
+  },
+  {
+    from: hubs[1].coords,
+    to: hubs[2].coords,
+    status: 'Congested',
+    color: '#f97316'
+  },
+  {
+    from: hubs[2].coords,
+    to: hubs[3].coords,
+    status: 'Critical',
+    color: '#ef4444'
+  },
+  {
+    from: hubs[3].coords,
+    to: hubs[0].coords,
+    status: 'Normal',
+    color: '#10b981'
+  }
+];
 
 export default function DigitalTwin() {
-  // Mock geospatial data for warehouses and suppliers mapped to an abstract 2D coordinate system
-  const networkNodes = [
-    { name: "Shanghai Port (Primary)", x: 80, y: 30, z: 2500, risk: 20, type: "Supplier", status: "Normal" },
-    { name: "Rotterdam Dist.", x: 20, y: 70, z: 1800, risk: 85, type: "Warehouse", status: "Congested" },
-    { name: "Los Angeles Hub", x: -40, y: 40, z: 3200, risk: 40, type: "Warehouse", status: "Normal" },
-    { name: "Mumbai Assembly", x: 60, y: 20, z: 1200, risk: 65, type: "Assembly", status: "Warning" },
-    { name: "Frankfurt Hub", x: 25, y: 65, z: 2100, risk: 15, type: "Assembly", status: "Normal" },
-    { name: "Shenzhen Electronics", x: 85, y: 25, z: 1900, risk: 10, type: "Supplier", status: "Normal" },
-    { name: "Mexico City Plant", x: -20, y: 20, z: 900, risk: 92, type: "Assembly", status: "Critical" },
-  ];
-
-
-
-  const getNodeColor = (status: string) => {
-    switch (status) {
-      case "Critical": return "hsl(var(--destructive))"
-      case "Congested": return "#f97316"
-      case "Warning": return "#eab308"
-      default: return "hsl(var(--primary))"
-    }
-  }
-
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      return (
-        <div className="bg-card border shadow-lg p-3 rounded-lg">
-          <p className="font-bold text-sm mb-1">{data.name}</p>
-          <p className="text-xs text-muted-foreground">{data.type}</p>
-          <div className="mt-2 space-y-1">
-            <p className="text-xs font-medium">Throughput: <span className="text-foreground">{data.z.toLocaleString()} units/day</span></p>
-            <p className="text-xs font-medium">Risk Score: <span className={`font-bold ${data.risk > 75 ? 'text-destructive' : 'text-emerald-500'}`}>{data.risk}</span></p>
-            <p className="text-xs font-medium">Status: <span className="text-foreground">{data.status}</span></p>
-          </div>
-        </div>
-      );
-    }
-    return null;
-  };
-
   return (
     <div className="space-y-6">
       <div>
@@ -55,73 +87,153 @@ export default function DigitalTwin() {
 
       <div className="grid gap-6 md:grid-cols-12">
         <div className="md:col-span-9">
-          <Card className="h-full border-primary/20 shadow-lg overflow-hidden bg-gradient-to-br from-card to-secondary/10">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <Card className="h-[600px] border-primary/20 shadow-xl overflow-hidden relative flex flex-col">
+            <CardHeader className="absolute top-0 left-0 right-0 z-[1000] bg-background/80 backdrop-blur-md border-b pointer-events-none flex flex-row items-center justify-between pb-3">
               <div>
                 <CardTitle>Global Network Topology</CardTitle>
                 <CardDescription>Live node status and active supply routes</CardDescription>
               </div>
-              <div className="flex gap-2">
-                <span className="flex items-center gap-1 text-xs font-medium"><div className="w-2 h-2 rounded-full bg-primary" /> Normal</span>
-                <span className="flex items-center gap-1 text-xs font-medium"><div className="w-2 h-2 rounded-full bg-orange-500" /> Congested</span>
-                <span className="flex items-center gap-1 text-xs font-medium"><div className="w-2 h-2 rounded-full bg-destructive" /> Critical</span>
+              <div className="flex gap-4">
+                <span className="flex items-center gap-2 text-sm font-medium"><div className="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" /> Normal</span>
+                <span className="flex items-center gap-2 text-sm font-medium"><div className="w-3 h-3 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.8)]" /> Congested</span>
+                <span className="flex items-center gap-2 text-sm font-medium"><div className="w-3 h-3 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]" /> Critical</span>
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="h-[500px] w-full bg-slate-900/5 dark:bg-slate-950 rounded-xl border relative overflow-hidden">
-                {/* Simulated connection lines (SVG overlay for effect) */}
-                <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-30">
-                  <path d="M 100 200 Q 250 50 400 300 T 700 150" fill="transparent" stroke="hsl(var(--primary))" strokeWidth="2" strokeDasharray="4 4" className="animate-pulse" />
-                  <path d="M 300 400 Q 500 450 600 250" fill="transparent" stroke="#f97316" strokeWidth="3" />
-                  <path d="M 150 100 L 300 150" fill="transparent" stroke="hsl(var(--destructive))" strokeWidth="4" />
-                </svg>
+            
+            <div className="flex-1 w-full h-full relative mt-16 z-0">
+              <MapContainer 
+                center={[30, 10]} 
+                zoom={2.5} 
+                scrollWheelZoom={true} 
+                className="w-full h-full z-0"
+                style={{ background: '#0f172a' }} // Deep slate background to match dark matter
+              >
+                {/* CartoDB Dark Matter Base Map */}
+                <TileLayer
+                  url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                />
 
-                <ResponsiveContainer width="100%" height="100%">
-                  <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-                    <XAxis type="number" dataKey="x" name="Longitude" hide domain={[-100, 100]} />
-                    <YAxis type="number" dataKey="y" name="Latitude" hide domain={[-100, 100]} />
-                    <ZAxis type="number" dataKey="z" range={[100, 1000]} name="Volume" />
-                    <Tooltip content={<CustomTooltip />} cursor={{ strokeDasharray: '3 3' }} />
-                    <Scatter name="Facilities" data={networkNodes}>
-                      {networkNodes.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={getNodeColor(entry.status)} fillOpacity={0.8} />
-                      ))}
-                    </Scatter>
-                  </ScatterChart>
-                </ResponsiveContainer>
+                {/* Logistics Routes */}
+                {routes.map((route, idx) => (
+                  <Polyline 
+                    key={`route-${idx}`}
+                    positions={[route.from as [number, number], route.to as [number, number]]}
+                    color={route.color}
+                    weight={3}
+                    opacity={0.6}
+                    className="animate-route"
+                  />
+                ))}
+
+                {/* Hub Nodes */}
+                {hubs.map((hub) => (
+                  <CircleMarker
+                    key={hub.id}
+                    center={hub.coords as [number, number]}
+                    radius={10}
+                    pathOptions={{ 
+                      color: hub.color, 
+                      fillColor: hub.color, 
+                      fillOpacity: 0.8,
+                      weight: 2
+                    }}
+                  >
+                    <Tooltip direction="top" offset={[0, -10]} opacity={1} className="bg-card border-primary/20 text-foreground p-3 rounded-xl shadow-xl">
+                      <div className="font-sans">
+                        <p className="font-black text-sm mb-1">{hub.name}</p>
+                        <p className="text-xs text-muted-foreground mb-2">Network Node</p>
+                        <div className="space-y-1">
+                          <p className="text-xs font-medium flex justify-between gap-4">Throughput: <span className="font-bold">{hub.throughput.toLocaleString()} units</span></p>
+                          <p className="text-xs font-medium flex justify-between gap-4">Risk Score: <span className={`font-bold ${hub.risk > 70 ? 'text-destructive' : 'text-emerald-500'}`}>{hub.risk}/100</span></p>
+                        </div>
+                      </div>
+                    </Tooltip>
+                    
+                    <Popup className="font-sans">
+                      <div className="p-1 min-w-[200px]">
+                        <h4 className="font-black text-base mb-1 text-slate-900">{hub.name}</h4>
+                        <p className={`text-xs font-bold uppercase tracking-wider mb-4 px-2 py-1 rounded-full inline-block ${
+                          hub.status === 'Critical' ? 'bg-red-100 text-red-700' : 
+                          hub.status === 'Congested' ? 'bg-orange-100 text-orange-700' : 
+                          'bg-emerald-100 text-emerald-700'
+                        }`}>
+                          {hub.status}
+                        </p>
+                        
+                        <div className="space-y-2 border-t pt-3">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-500 font-medium">Inventory</span>
+                            <span className="font-bold text-slate-900">{hub.inventory}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-500 font-medium">Active Shipments</span>
+                            <span className="font-bold text-slate-900">{Math.floor(hub.throughput * 0.15)}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-500 font-medium">Capacity Util.</span>
+                            <span className="font-bold text-slate-900">{hub.status === 'Congested' ? '98%' : '74%'}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </Popup>
+                  </CircleMarker>
+                ))}
+              </MapContainer>
+
+              {/* KPI Overlay */}
+              <div className="absolute bottom-6 left-6 z-[1000] flex gap-4 pointer-events-none">
+                <div className="bg-background/90 backdrop-blur-md border shadow-lg rounded-xl p-4 min-w-[140px]">
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2"><Navigation className="w-3 h-3 text-primary"/> Active Routes</p>
+                  <p className="text-3xl font-black mt-1">12</p>
+                </div>
+                <div className="bg-background/90 backdrop-blur-md border shadow-lg rounded-xl p-4 min-w-[140px]">
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2"><GitBranch className="w-3 h-3 text-orange-500"/> Congested</p>
+                  <p className="text-3xl font-black mt-1 text-orange-500">4</p>
+                </div>
+                <div className="bg-background/90 backdrop-blur-md border shadow-lg rounded-xl p-4 min-w-[140px]">
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2"><Zap className="w-3 h-3 text-destructive"/> Critical Nodes</p>
+                  <p className="text-3xl font-black mt-1 text-destructive">1</p>
+                </div>
+                <div className="bg-background/90 backdrop-blur-md border shadow-lg rounded-xl p-4 min-w-[140px]">
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2"><Activity className="w-3 h-3 text-emerald-500"/> Global Vol</p>
+                  <p className="text-3xl font-black mt-1">12.5k</p>
+                </div>
               </div>
-            </CardContent>
+            </div>
           </Card>
         </div>
 
+        {/* Side Panels */}
         <div className="md:col-span-3 space-y-6">
-          <Card>
-            <CardHeader className="pb-3">
+          <Card className="shadow-lg border-primary/10">
+            <CardHeader className="pb-3 bg-secondary/30">
               <CardTitle className="text-lg">Network Health</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6 pt-6">
               <div>
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-muted-foreground">Throughput</span>
-                  <span className="font-bold">12,500 / day</span>
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="text-muted-foreground font-medium">Global Throughput</span>
+                  <span className="font-bold text-primary">12,500 units/day</span>
                 </div>
-                <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
+                <div className="w-full bg-secondary h-2.5 rounded-full overflow-hidden">
                   <div className="bg-primary h-full w-[85%]" />
                 </div>
               </div>
               <div>
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-muted-foreground">Congestion Index</span>
-                  <span className="font-bold text-orange-500">Moderate</span>
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="text-muted-foreground font-medium">Congestion Index</span>
+                  <span className="font-bold text-orange-500">Moderate Risk</span>
                 </div>
-                <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
+                <div className="w-full bg-secondary h-2.5 rounded-full overflow-hidden">
                   <div className="bg-orange-500 h-full w-[45%]" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-destructive/50 shadow-md">
+          <Card className="border-destructive/30 shadow-lg relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-1 h-full bg-destructive" />
             <CardHeader className="pb-3 bg-destructive/5">
               <CardTitle className="text-lg flex items-center gap-2 text-destructive">
                 <ShieldAlert className="h-5 w-5" /> Active Hotspots
@@ -129,11 +241,11 @@ export default function DigitalTwin() {
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y divide-border">
-                {networkNodes.filter(n => n.risk > 70).map((node, i) => (
-                  <div key={i} className="p-4 hover:bg-muted/50 transition-colors">
-                    <p className="font-bold text-sm">{node.name}</p>
-                    <p className="text-xs text-muted-foreground mb-2">Risk Score: {node.risk}/100</p>
-                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${node.status === 'Critical' ? 'bg-destructive/10 text-destructive' : 'bg-orange-500/10 text-orange-500'}`}>
+                {hubs.filter(h => h.risk > 60).map((node, i) => (
+                  <div key={i} className="p-5 hover:bg-muted/50 transition-colors cursor-pointer">
+                    <p className="font-bold text-base mb-1">{node.name}</p>
+                    <p className="text-sm text-muted-foreground mb-3">Risk Exposure: <span className="font-bold text-foreground">{node.risk}/100</span></p>
+                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full ${node.status === 'Critical' ? 'bg-destructive/10 text-destructive' : 'bg-orange-500/10 text-orange-500'}`}>
                       {node.status}
                     </span>
                   </div>

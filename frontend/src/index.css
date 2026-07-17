@@ -76,3 +76,14 @@
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
+
+@keyframes dash {
+  to {
+    stroke-dashoffset: -100;
+  }
+}
+
+.animate-route {
+  stroke-dasharray: 10, 10;
+  animation: dash 2s linear infinite;
+}
